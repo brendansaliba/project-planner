@@ -34,6 +34,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [teamMembers, setTeamMembers] = useState("");
   const [expandedEpics, setExpandedEpics] = useState<Record<string, boolean>>({});
   const [expandedStories, setExpandedStories] = useState<Record<string, boolean>>({});
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
@@ -50,6 +51,252 @@ export default function Home() {
     return JSON.stringify(plan, null, 2);
   }, [plan]);
 
+  function escapeHtml(value: string) {
+    return value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll("\"", "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function buildAssigneeHtml(assignees?: string[]) {
+    if (!assignees || assignees.length === 0) return "";
+    return `<p class="assignees">Assigned: ${assignees.map(escapeHtml).join(", ")}</p>`;
+  }
+
+  function buildPrintableHtml(planData: Plan) {
+    const title = escapeHtml(planData.title || "Project Plan");
+    const summary = planData.summary ? `<p>${escapeHtml(planData.summary)}</p>` : "";
+    const team =
+      planData.team_members && planData.team_members.length > 0
+        ? `<div class="team"><h3>Team</h3><ul>${planData.team_members
+            .map(
+              (member) =>
+                `<li><strong>${escapeHtml(member.name)}</strong>${
+                  member.skills?.length
+                    ? ` — ${member.skills.map(escapeHtml).join(", ")}`
+                    : ""
+                }</li>`
+            )
+            .join("")}</ul></div>`
+        : "";
+    const assumptions =
+      planData.assumptions && planData.assumptions.length > 0
+        ? `<div class="columns"><div><h3>Assumptions</h3><ul>${planData.assumptions
+            .map((item) => `<li>${escapeHtml(item)}</li>`)
+            .join("")}</ul></div>`
+        : "";
+    const risks =
+      planData.risks && planData.risks.length > 0
+        ? `<div><h3>Risks</h3><ul>${planData.risks
+            .map((item) => `<li>${escapeHtml(item)}</li>`)
+            .join("")}</ul></div></div>`
+        : assumptions
+        ? "</div>"
+        : "";
+
+    const epics = planData.epics
+      .map((epic, epicIndex) => {
+        const epicTitle = escapeHtml(epic.title || `Epic ${epicIndex + 1}`);
+        const epicDesc = epic.description ? `<p>${escapeHtml(epic.description)}</p>` : "";
+        const epicAssignees = buildAssigneeHtml(epic.assignees);
+
+        const stories = epic.stories
+          .map((story, storyIndex) => {
+            const storyTitle = escapeHtml(story.title || `Story ${storyIndex + 1}`);
+            const storyDesc = story.description ? `<p>${escapeHtml(story.description)}</p>` : "";
+            const storyAssignees = buildAssigneeHtml(story.assignees);
+
+            const tasks = story.tasks
+              .map((task, taskIndex) => {
+                const taskTitle = escapeHtml(task.title || `Task ${taskIndex + 1}`);
+                const taskDesc = task.description ? `<p>${escapeHtml(task.description)}</p>` : "";
+                const taskAssignees = buildAssigneeHtml(task.assignees);
+                const requirements =
+                  task.completion_requirements && task.completion_requirements.length > 0
+                    ? `<div class="subsection"><h6>Completion requirements</h6><ul>${task.completion_requirements
+                        .map((req) => `<li>${escapeHtml(req)}</li>`)
+                        .join("")}</ul></div>`
+                    : "";
+                const subtasks =
+                  task.subtasks && task.subtasks.length > 0
+                    ? `<div class="subsection"><h6>Subtasks</h6><ul>${task.subtasks
+                        .map(
+                          (subtask) =>
+                            `<li><strong>${escapeHtml(subtask.title)}</strong>${
+                              subtask.description ? ` — ${escapeHtml(subtask.description)}` : ""
+                            }</li>`
+                        )
+                        .join("")}</ul></div>`
+                    : "";
+                return `
+                  <div class="task">
+                    <h5>${taskTitle}</h5>
+                    ${taskAssignees}
+                    ${taskDesc}
+                    ${requirements}
+                    ${subtasks}
+                  </div>
+                `;
+              })
+              .join("");
+
+            return `
+              <div class="story">
+                <h4>${storyTitle}</h4>
+                ${storyAssignees}
+                ${storyDesc}
+                <div class="tasks">${tasks}</div>
+              </div>
+            `;
+          })
+          .join("");
+
+        return `
+          <section class="epic">
+            <h3>${epicTitle}</h3>
+            ${epicAssignees}
+            ${epicDesc}
+            <div class="stories">${stories}</div>
+          </section>
+        `;
+      })
+      .join("");
+
+    return `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${title}</title>
+          <style>
+            :root {
+              color-scheme: light;
+            }
+            body {
+              font-family: "Georgia", "Times New Roman", serif;
+              color: #111827;
+              margin: 40px;
+              line-height: 1.6;
+            }
+            h1, h2, h3, h4, h5 {
+              font-family: "Helvetica Neue", "Segoe UI", sans-serif;
+              margin: 0 0 8px;
+            }
+            h1 {
+              font-size: 28px;
+              margin-bottom: 10px;
+            }
+            h2 {
+              font-size: 20px;
+              margin-top: 18px;
+            }
+            h3 {
+              font-size: 18px;
+              margin-top: 16px;
+            }
+            h4 {
+              font-size: 16px;
+              margin-top: 12px;
+            }
+            h5 {
+              font-size: 14px;
+              margin-top: 10px;
+            }
+            h6 {
+              font-size: 12px;
+              margin: 10px 0 4px;
+              text-transform: uppercase;
+              letter-spacing: 0.08em;
+              color: #6b7280;
+            }
+            p {
+              margin: 6px 0;
+            }
+            ul {
+              margin: 6px 0 12px 18px;
+              padding: 0;
+            }
+            .assignees {
+              font-size: 12px;
+              font-weight: 600;
+              color: #0f766e;
+              margin: 4px 0 6px;
+            }
+            .team ul {
+              columns: 2;
+              column-gap: 24px;
+            }
+            .epic {
+              border: 1px solid #e5e7eb;
+              border-radius: 14px;
+              padding: 16px 18px;
+              margin: 18px 0;
+              background: #f9fafb;
+            }
+            .story {
+              border-left: 3px solid #d1d5db;
+              padding-left: 12px;
+              margin: 12px 0;
+              background: #fff;
+              border-radius: 10px;
+            }
+            .task {
+              border: 1px solid #e5e7eb;
+              border-radius: 10px;
+              padding: 10px 12px;
+              margin: 10px 0;
+              background: #ffffff;
+            }
+            .subsection {
+              margin-top: 8px;
+            }
+            .columns {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 18px;
+            }
+            @media print {
+              body {
+                margin: 24px;
+              }
+              .epic {
+                break-inside: avoid;
+              }
+              .story, .task {
+                break-inside: avoid;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${title}</h1>
+          ${summary}
+          ${team}
+          ${assumptions}
+          ${risks}
+          <h2>Plan</h2>
+          ${epics}
+        </body>
+      </html>
+    `;
+  }
+
+  function handleExportPdf() {
+    if (!plan) return;
+    const html = buildPrintableHtml(plan);
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 300);
+  }
+
   useEffect(() => {
     const fromHistory = searchParams.get("fromHistory");
     if (!fromHistory) return;
@@ -57,9 +304,15 @@ export default function Home() {
     try {
       const stored = localStorage.getItem(DRAFT_KEY);
       if (!stored) return;
-      const draft = JSON.parse(stored) as { id?: string; prompt: string; plan: Plan };
+      const draft = JSON.parse(stored) as {
+        id?: string;
+        prompt: string;
+        plan: Plan;
+        teamMembers?: string;
+      };
       setPrompt(draft.prompt);
       setPlan(draft.plan);
+      setTeamMembers(draft.teamMembers ?? formatTeamMembers(draft.plan.team_members));
       setHistoryItemId(draft.id ?? null);
       setEditMode(false);
       localStorage.removeItem(DRAFT_KEY);
@@ -98,6 +351,16 @@ export default function Home() {
     }
   }
 
+  function formatTeamMembers(members?: Plan["team_members"]) {
+    if (!members || members.length === 0) return "";
+    return members
+      .map((member) => {
+        const skills = member.skills?.length ? ` — ${member.skills.join(", ")}` : "";
+        return `${member.name}${skills}`;
+      })
+      .join("\n");
+  }
+
   function triggerHighlight(key: string) {
     setHighlightItems((prev) => ({ ...prev, [key]: true }));
     setTimeout(() => {
@@ -120,6 +383,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append("prompt", prompt);
+      formData.append("teamMembers", teamMembers);
       if (files) {
         Array.from(files).forEach((file) => formData.append("files", file));
       }
@@ -135,6 +399,7 @@ export default function Home() {
       }
 
       setPlan(payload.plan);
+      setTeamMembers(formatTeamMembers(payload.plan.team_members));
       setEditMode(false);
       setExpandedEpics({});
       setExpandedStories({});
@@ -462,9 +727,9 @@ export default function Home() {
 
       <section className="rounded-3xl border border-ink-100 bg-white p-6 shadow-sm">
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <label className="text-sm font-medium text-ink-700" htmlFor="prompt">
-            Project prompt
-          </label>
+            <label className="text-sm font-medium text-ink-700" htmlFor="prompt">
+              Project prompt
+            </label>
           <textarea
             id="prompt"
             name="prompt"
@@ -474,6 +739,23 @@ export default function Home() {
             onChange={(event) => setPrompt(event.target.value)}
             required
           />
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-ink-700" htmlFor="teamMembers">
+              Team members (name — skills)
+            </label>
+            <textarea
+              id="teamMembers"
+              name="teamMembers"
+              className="min-h-[110px] w-full rounded-2xl border border-ink-200 bg-ink-50/40 p-4 text-sm text-ink-900 focus:border-ink-400 focus:outline-none focus:ring-2 focus:ring-ink-100"
+              placeholder={"Avery — frontend, UI\nJordan — backend, APIs\nSam — QA, testing"}
+              value={teamMembers}
+              onChange={(event) => setTeamMembers(event.target.value)}
+            />
+            <p className="text-xs text-ink-500">
+              One per line. Use a dash to separate name and skills.
+            </p>
+          </div>
 
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-ink-700" htmlFor="files">
@@ -508,6 +790,7 @@ export default function Home() {
                 setFiles(null);
                 setPlan(null);
                 setError(null);
+                setTeamMembers("");
               }}
             >
               Use example
@@ -534,6 +817,18 @@ export default function Home() {
                 {plan.summary && (
                   <p className="text-sm leading-relaxed text-ink-600">{plan.summary}</p>
                 )}
+                {plan.team_members && plan.team_members.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {plan.team_members.map((member) => (
+                      <span
+                        key={member.name}
+                        className="rounded-full border border-ink-200 bg-ink-50 px-3 py-1 text-xs font-semibold text-ink-700"
+                      >
+                        {member.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <a
@@ -551,6 +846,13 @@ export default function Home() {
                   onClick={() => setEditMode((prev) => !prev)}
                 >
                   {editMode ? "Exit edit mode" : "Edit plan"}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-ink-200 bg-white px-4 py-2 text-xs font-semibold text-ink-700"
+                  onClick={handleExportPdf}
+                >
+                  Export to PDF
                 </button>
                 {editMode && (
                   <button
@@ -615,12 +917,24 @@ export default function Home() {
                         ) : (
                           <div>
                             <h3 className="text-xl font-semibold text-ink-900">{epic.title}</h3>
-                            {epic.description && (
-                              <p className="mt-2 text-sm text-ink-600">{epic.description}</p>
-                            )}
+                        {epic.description && (
+                          <p className="mt-2 text-sm text-ink-600">{epic.description}</p>
+                        )}
+                        {epic.assignees && epic.assignees.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {epic.assignees.map((name) => (
+                              <span
+                                key={`${epic.id ?? epic.title}-${name}`}
+                                className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"
+                              >
+                                {name}
+                              </span>
+                            ))}
                           </div>
                         )}
                       </div>
+                    )}
+                  </div>
                       <span className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-500">
                         {isEpicExpanded ? "Hide" : "Show"}
                       </span>
@@ -708,6 +1022,18 @@ export default function Home() {
                                         <p className="mt-1 text-sm text-ink-600">
                                           {story.description}
                                         </p>
+                                      )}
+                                      {story.assignees && story.assignees.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                          {story.assignees.map((name) => (
+                                            <span
+                                              key={`${story.id ?? story.title}-${name}`}
+                                              className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
+                                            >
+                                              {name}
+                                            </span>
+                                          ))}
+                                        </div>
                                       )}
                                     </div>
                                   )}
@@ -801,6 +1127,18 @@ export default function Home() {
                                                   <p className="mt-1 text-sm text-ink-600">
                                                     {task.description}
                                                   </p>
+                                                )}
+                                                {task.assignees && task.assignees.length > 0 && (
+                                                  <div className="mt-2 flex flex-wrap gap-2">
+                                                    {task.assignees.map((name) => (
+                                                      <span
+                                                        key={`${task.id ?? task.title}-${name}`}
+                                                        className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700"
+                                                      >
+                                                        {name}
+                                                      </span>
+                                                    ))}
+                                                  </div>
                                                 )}
                                               </div>
                                             )}

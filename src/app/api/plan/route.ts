@@ -5,7 +5,11 @@ const MAX_FILES = 5;
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const MAX_TOTAL_SIZE = 6 * 1024 * 1024; // 6MB
 
-function buildPrompt(userPrompt: string, files: { name: string; type: string; text: string }[]) {
+function buildPrompt(
+  userPrompt: string,
+  teamMembers: string,
+  files: { name: string; type: string; text: string }[]
+) {
   const fileBlocks = files
     .map((file) => {
       return `File: ${file.name}\nType: ${file.type || "unknown"}\n---\n${file.text}`;
@@ -16,9 +20,14 @@ function buildPrompt(userPrompt: string, files: { name: string; type: string; te
     "You are a senior technical project planner.",
     "Return a JSON plan that includes epics, stories, tasks, subtasks, and completion requirements for each task.",
     "Every task must include 2-4 subtasks.",
+    "Include team_members as a list of team members with their skills. If none are provided, return an empty list.",
+    "Assign relevant team members to every epic, story, and task using the assignees field (array of names).",
     "Use clear, action-oriented titles. Keep items atomic and well-scoped.",
     "Include all fields required by the schema. If a field is unknown, use an empty string or empty array.",
     "Only output JSON that matches the required schema.",
+    "",
+    "Team members (name + skills):",
+    teamMembers.trim() ? teamMembers.trim() : "None provided.",
     "",
     "User prompt:",
     userPrompt.trim(),
@@ -102,7 +111,8 @@ export async function POST(req: Request) {
     filePayload.push({ name: file.name, type: file.type, text });
   }
 
-  const userInput = buildPrompt(prompt, filePayload);
+  const teamMembers = String(form.get("teamMembers") || "");
+  const userInput = buildPrompt(prompt, teamMembers, filePayload);
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",

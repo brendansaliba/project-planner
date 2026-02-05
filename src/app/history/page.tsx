@@ -39,7 +39,14 @@ export default function HistoryPage() {
   function openInPlanner(item: HistoryItem) {
     localStorage.setItem(
       DRAFT_KEY,
-      JSON.stringify({ id: item.id, prompt: item.prompt, plan: item.plan })
+      JSON.stringify({
+        id: item.id,
+        prompt: item.prompt,
+        plan: item.plan,
+        teamMembers: (item.plan.team_members ?? [])
+          .map((member) => `${member.name}${member.skills?.length ? ` — ${member.skills.join(", ")}` : ""}`)
+          .join("\n")
+      })
     );
   }
 
