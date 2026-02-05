@@ -6,7 +6,6 @@ import type { Plan } from "@/lib/types";
 import Link from "next/link";
 
 const HISTORY_KEY = "planner_history";
-const DRAFT_KEY = "planner_draft";
 
 type HistoryItem = {
   id: string;
@@ -34,20 +33,6 @@ export default function HistoryPage() {
     const next = items.filter((item) => item.id !== id);
     setItems(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-  }
-
-  function openInPlanner(item: HistoryItem) {
-    localStorage.setItem(
-      DRAFT_KEY,
-      JSON.stringify({
-        id: item.id,
-        prompt: item.prompt,
-        plan: item.plan,
-        teamMembers: (item.plan.team_members ?? [])
-          .map((member) => `${member.name}${member.skills?.length ? ` — ${member.skills.join(", ")}` : ""}`)
-          .join("\n")
-      })
-    );
   }
 
   return (
@@ -91,9 +76,8 @@ export default function HistoryPage() {
 
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <Link
-                    href="/?fromHistory=1"
+                    href={`/plan/${item.id}`}
                     className="rounded-full border border-ink-200 bg-ink-50 px-4 py-2 text-xs font-semibold text-ink-700"
-                    onClick={() => openInPlanner(item)}
                   >
                     Open in planner
                   </Link>
